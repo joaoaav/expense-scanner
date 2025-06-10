@@ -1,40 +1,54 @@
+import { router } from 'expo-router';
+import { Auth, signInWithEmailAndPassword } from 'firebase/auth';
 import React, { useState } from 'react';
-import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { auth } from '../services/firebase';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const onLogin = () => {
+  const onLogin = async () => {
     // TODO: implement Firebase Auth login here
-    Alert.alert('Login pressed', `Email: ${email}\nPassword: ${password}`);
+    try {
+      if (!auth) {
+        throw new Error('Firebase Auth is not initialized.');
+      }
+      await signInWithEmailAndPassword(auth as Auth, email, password);
+      router.replace('/scan');
+    } catch (err: any) {
+      console.log('login error', err);
+      setError(err.message);
+    }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+      <View style={styles.container}>
+        <Text style={styles.title}>Login</Text>
 
-      <Text>Email:</Text>
-      <TextInput
-        style={styles.input}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
+        <Text>Email:</Text>
+        <TextInput
+          style={styles.input}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-      <Text>Password:</Text>
-      <TextInput
-        style={styles.input}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+        <Text>Password:</Text>
+        <TextInput
+          style={styles.input}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
 
-      <Button title="Log In" onPress={onLogin} />
+        {error ? <Text style={{ color: 'red' }}>{error}</Text> : null}
 
-      {/* TODO: Add navigation to Register screen if needed */}
-    </View>
+        <Button title="Log In" onPress={onLogin} />
+      </View>
+    
   );
 };
 

@@ -1,7 +1,11 @@
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import { router, useNavigation } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Image, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AuthProvider, useAuth } from '../services/auth';
+import { auth } from '../services/firebase';
 import { submitExpense } from '../services/googleSheetsService';
 import { ParseImageText } from '../services/ocrService';
 
@@ -19,6 +23,30 @@ const ScanScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [paidBy, setPaidBy] = useState<'Rafael' | 'João'>('Rafael');
   const [split, setSplit] = useState(true);
+  const {logout} = useAuth();
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Button title="Logout" onPress={logout} />
+      ),
+    });
+  }, [navigation]);
+
+  useEffect(() => {
+    if (!auth) {
+      return;
+    }
+
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.replace('/auth/login');
+      }
+    });
+
+    return unsub;
+  }, []);
 
   // Pick or take photo
   async function pickImage() {
@@ -41,9 +69,9 @@ const ScanScreen: React.FC = () => {
     if (!result.canceled) {
       if (Platform.OS === 'web') {
         // Use Base64 directly on the web
-        console.log('result:', result);
+        //console.log('result:', result);
         let base64Data = result.assets[0].uri;
-        console.log('Base64 data:', base64Data);
+        //console.log('Base64 data:', base64Data);
         setImageUri(base64Data);
       } else {
         // Save Base64 as a file on native platforms
@@ -134,54 +162,56 @@ const ScanScreen: React.FC = () => {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <View style={styles.container}>
-        {/* <Button title="Pick Receipt Photo" onPress={pickImage} /> */}
-        <Button title="Take Photo of Receipt" onPress={TakePhoto} />
-        {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
-        <Button title="Process Receipt" onPress={onProcessReceipt} disabled={!imageUri || loading} />
+    <AuthProvider>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.container}>
+          {/* <Button title="Pick Receipt Photo" onPress={pickImage} /> */}
+          <Button title="Take Photo of Receipt" onPress={TakePhoto} />
+          {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
+          <Button title="Process Receipt" onPress={onProcessReceipt} disabled={!imageUri || loading} />
 
-        {loading && <ActivityIndicator size="large" color="#0000ff" />}
+          {loading && <ActivityIndicator size="large" color="#0000ff" />}
 
-        {expenseData && (
-          <View style={styles.form}>
-            <Text>Date:</Text>
-            <TextInput style={styles.input} value={expenseData.date} onChangeText={(d) => setExpenseData({ ...expenseData, date: d })} />
+          {expenseData && (
+            <View style={styles.form}>
+              <Text>Date:</Text>
+              <TextInput style={styles.input} value={expenseData.date} onChangeText={(d) => setExpenseData({ ...expenseData, date: d })} />
 
-            <Text>Amount:</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              value={expenseData.amount}
-              onChangeText={(a) => setExpenseData({ ...expenseData, amount: a })}
-            />
+              <Text>Amount:</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="numeric"
+                value={expenseData.amount}
+                onChangeText={(a) => setExpenseData({ ...expenseData, amount: a })}
+              />
 
-            <Text>Description:</Text>
-            <TextInput
-              style={styles.input}
-              value={expenseData.description}
-              onChangeText={(desc) => setExpenseData({ ...expenseData, description: desc })}
-            />
+              <Text>Description:</Text>
+              <TextInput
+                style={styles.input}
+                value={expenseData.description}
+                onChangeText={(desc) => setExpenseData({ ...expenseData, description: desc })}
+              />
 
-            <Text>Paid by:</Text>
-            <View style={styles.paidByContainer}>
-              <Button title="Rafael" onPress={() => setPaidBy('Rafael')} color={paidBy === 'Rafael' ? 'blue' : undefined} />
-              <Button title="João" onPress={() => setPaidBy('João')} color={paidBy === 'João' ? 'blue' : undefined} />
+              <Text>Paid by:</Text>
+              <View style={styles.paidByContainer}>
+                <Button title="Rafael" onPress={() => setPaidBy('Rafael')} color={paidBy === 'Rafael' ? 'blue' : undefined} />
+                <Button title="João" onPress={() => setPaidBy('João')} color={paidBy === 'João' ? 'blue' : undefined} />
+              </View>
+
+              <View style={{ marginVertical: 10 }}>
+                <Text>Split Expense?</Text>
+                <Button title={split ? 'Yes' : 'No'} onPress={() => setSplit(!split)} />
+              </View>
+
+              <Button
+                title="Save Expense"
+                onPress={SaveExpense}
+              />
             </View>
-
-            <View style={{ marginVertical: 10 }}>
-              <Text>Split Expense?</Text>
-              <Button title={split ? 'Yes' : 'No'} onPress={() => setSplit(!split)} />
-            </View>
-
-            <Button
-              title="Save Expense"
-              onPress={SaveExpense}
-            />
-          </View>
-        )}
-      </View>
-    </ScrollView>
+          )}
+        </View>
+      </ScrollView>
+    </AuthProvider>
   );
 };
 
